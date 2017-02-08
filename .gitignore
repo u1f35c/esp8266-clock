@@ -1,0 +1,5 @@
+project_config.h
+*.o
+clock_app.a
+clock.elf
+clock-*.bin
