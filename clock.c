@@ -48,14 +48,14 @@
 
 #include "clock.h"
 
+#define NTP_SERVER     "uk.pool.ntp.org"
 #define NTP_TIMEOUT_MS 5000
 
 static uint32_t sys_last_ticks;
 static uint32_t sys_delta;
 static os_timer_t ntp_timeout;
-static struct espconn *pCon = NULL;
 
-uint8 ntp_server[] = {87, 124, 126, 49};
+static ip_addr_t ntp_server_ip;
 
 typedef struct {
 	uint8 options;
@@ -103,7 +103,10 @@ void ICACHE_FLASH_ATTR breakdown_time(uint32_t time, struct tm *result)
 	time %= 365 * 4 + 1;
 }
 
-static void ICACHE_FLASH_ATTR ntp_udp_timeout(void *arg) {
+static void ICACHE_FLASH_ATTR ntp_udp_timeout(void *arg)
+{
+	struct espconn *pCon = (struct espconn *) arg;
+
 	os_timer_disarm(&ntp_timeout);
 	os_printf("NTP timeout.\n");
 
@@ -119,6 +122,7 @@ static void ICACHE_FLASH_ATTR ntp_udp_timeout(void *arg) {
 static void ICACHE_FLASH_ATTR ntp_udp_recv(void *arg, char *pdata,
 	unsigned short len)
 {
+	struct espconn *pCon = (struct espconn *) arg;
 	uint32_t timestamp;
 	ntp_t *ntp;
 	struct tm dt;
@@ -151,20 +155,26 @@ static void ICACHE_FLASH_ATTR ntp_udp_recv(void *arg, char *pdata,
 	}
 }
 
-void ICACHE_FLASH_ATTR ntp_get_time(void)
+void ICACHE_FLASH_ATTR ntp_got_dns(const char *name, ip_addr_t *ip, void *arg)
 {
 	ntp_t ntp;
+	struct espconn *pCon = (struct espconn *) arg;
+
+	if (ip == NULL) {
+		os_printf("NTP DNS request failed.\n");
+		os_free(pCon);
+		return;
+	}
 
 	os_printf("Sending NTP request.\n");
 
 	// Set up the UDP "connection"
-	pCon = (struct espconn *) os_zalloc(sizeof(struct espconn));
 	pCon->type = ESPCONN_UDP;
 	pCon->state = ESPCONN_NONE;
 	pCon->proto.udp = (esp_udp *) os_zalloc(sizeof(esp_udp));
 	pCon->proto.udp->local_port = espconn_port();
 	pCon->proto.udp->remote_port = 123;
-	os_memcpy(pCon->proto.udp->remote_ip, ntp_server, 4);
+	os_memcpy(pCon->proto.udp->remote_ip, &ip->addr, 4);
 
 	// Create a really simple NTP request packet
 	os_memset(&ntp, 0, sizeof(ntp_t));
@@ -179,6 +189,15 @@ void ICACHE_FLASH_ATTR ntp_get_time(void)
 	espconn_create(pCon);
 	espconn_regist_recvcb(pCon, ntp_udp_recv);
 	espconn_sent(pCon, (uint8_t *) &ntp, sizeof(ntp_t));
+}
+
+void ICACHE_FLASH_ATTR ntp_get_time(void)
+{
+	struct espconn *pCon = NULL;
+
+	os_printf("Sending DNS request for NTP server.\n");
+	pCon = (struct espconn *) os_zalloc(sizeof(struct espconn));
+	espconn_gethostbyname(pCon, NTP_SERVER, &ntp_server_ip, ntp_got_dns);
 }
 
 void ICACHE_FLASH_ATTR rtc_init(void)
