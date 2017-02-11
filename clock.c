@@ -90,8 +90,16 @@ uint32_t ICACHE_FLASH_ATTR get_time(void)
 	return sys_ticks / 1000000 + sys_delta;
 }
 
+bool ICACHE_FLASH_ATTR is_leap(uint32_t year)
+{
+	return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+}
+
 void ICACHE_FLASH_ATTR breakdown_time(uint32_t time, struct tm *result)
 {
+	uint32_t era, doe, yoe, mp;
+
+	/* Do the time component */
 	result->tm_sec = time % 60;
 	time /= 60;
 	result->tm_min = time % 60;
@@ -99,8 +107,27 @@ void ICACHE_FLASH_ATTR breakdown_time(uint32_t time, struct tm *result)
 	result->tm_hour = time % 24;
 	time /= 24;
 
-	result->tm_year = time / (365 * 4 + 1) * 4 + 70;
-	time %= 365 * 4 + 1;
+	/* Now time is the number of days since 1970-01-01 (a Thursday) */
+	result->tm_wday = (time + 4) % 7;
+
+	/* Below from http://howardhinnant.github.io/date_algorithms.html */
+	time += 719468;
+	era = time / 146097;
+	doe = time - era * 146097;
+	yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+
+	result->tm_year = yoe + era * 400;
+	result->tm_yday = doe - (365 * yoe + yoe / 4 - yoe / 100);
+	mp = (5 * result->tm_yday + 2) / 153;
+	result->tm_mday = result->tm_yday - (153 * mp + 2) / 5 + 1;
+	result->tm_mon = mp + (mp < 10 ? 2 : -10);
+	if (result->tm_mon <=2)
+		result->tm_year++;
+
+	/* result->tm_yday is March 1st indexed at this point; fix up */
+	result->tm_yday += 28 + 31;
+	if (is_leap(result->tm_year))
+		result->tm_yday++;
 }
 
 static void ICACHE_FLASH_ATTR ntp_udp_timeout(void *arg)
@@ -143,8 +170,9 @@ static void ICACHE_FLASH_ATTR ntp_udp_recv(void *arg, char *pdata,
 
 	// Print it out
 	breakdown_time(timestamp, &dt);
-	os_printf("%04d %02d:%02d:%02d (%u)\r\n", dt.tm_year, dt.tm_hour,
-		dt.tm_min, dt.tm_sec, timestamp);
+	os_printf("%04d-%02d-%02d %02d:%02d:%02d (%u)\r\n",
+		dt.tm_year, dt.tm_mon + 1, dt.tm_mday,
+		dt.tm_hour, dt.tm_min, dt.tm_sec, timestamp);
 
 	// clean up connection
 	if (pCon) {
