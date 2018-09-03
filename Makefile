@@ -15,7 +15,7 @@ LDFLAGS = -nostdlib -Wl,--no-check-sections -Wl,--gc-sections -Wl,-static \
 	  -L$(SDKDIR)/xtensa-lx106-elf/lib
 
 APP = clock
-OBJS = user_main.o max7219.o spi.o clock.o
+OBJS = user_main.o clock.o max7219.o ota.o spi.o
 
 all: rom0.bin rom1.bin
 

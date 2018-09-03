@@ -23,6 +23,7 @@
 
 #include "clock.h"
 #include "max7219.h"
+#include "ota.h"
 #include "spi.h"
 
 struct station_config wificfg;
@@ -112,6 +113,7 @@ void ICACHE_FLASH_ATTR wifi_callback(System_Event_t *evt)
 		break;
 	case EVENT_STAMODE_GOT_IP:
 		ntp_get_time();
+		ota_check();
 	default:
 		break;
 	}
