@@ -44,8 +44,6 @@
 #include <mem.h>
 #include <osapi.h>
 
-#include "espmissingincludes.h"
-
 #include "clock.h"
 
 #define NTP_SERVER     "uk.pool.ntp.org"

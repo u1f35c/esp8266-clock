@@ -19,8 +19,6 @@
 #include <os_type.h>
 #include <user_interface.h>
 
-#include "espmissingincludes.h"
-
 #include "project_config.h"
 
 #include "clock.h"

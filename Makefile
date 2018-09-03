@@ -1,15 +1,18 @@
 SDKDIR ?= /opt/esp8266-sdk
 
-AR = $(SDKDIR)/bin/xtensa-lx106-elf-ar
-CC = $(SDKDIR)/bin/xtensa-lx106-elf-gcc
-LD = $(SDKDIR)/bin/xtensa-lx106-elf-gcc
-OBJCOPY = $(SDKDIR)/bin/xtensa-lx106-elf-objcopy
-OBJDUMP = $(SDKDIR)/bin/xtensa-lx106-elf-objdump
+AR = xtensa-lx106-elf-ar
+CC = xtensa-lx106-elf-gcc
+LD = xtensa-lx106-elf-gcc
+OBJCOPY = xtensa-lx106-elf-objcopy
+OBJDUMP = xtensa-lx106-elf-objdump
 
 LIBS = -lc -lhal -lphy -lpp -lnet80211 -llwip -lwpa -lmain
 
-CFLAGS = -Wall -Os -fno-inline-functions -mlongcalls -DICACHE_FLASH -I.
-LDFLAGS = -nostdlib -Wl,--no-check-sections -u call_user_start -Wl,-static
+CFLAGS = -Wall -Os -fno-inline-functions -mlongcalls -DICACHE_FLASH -I. \
+	 -I$(SDKDIR)/xtensa-lx106-elf/include
+LDFLAGS = -nostdlib -Wl,--no-check-sections -Wl,--gc-sections -Wl,-static \
+	  -u call_user_start \
+	  -L$(SDKDIR)/xtensa-lx106-elf/lib
 
 APP = clock
 OBJS = user_main.o max7219.o spi.o clock.o
@@ -35,6 +38,6 @@ project_config.h:
 	echo '#define CFG_WIFI_PASSWORD "password"' >> $@
 
 clean:
-	rm -f $(OBJS) $(APP)_app.a $(APP).elf rom0.bin rom1.bin
+	rm -f $(OBJS) $(APP)_app.a rom0.elf rom1.elf rom0.bin rom1.bin
 
 .PHONY: all clean
