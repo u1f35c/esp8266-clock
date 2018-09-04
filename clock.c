@@ -55,6 +55,7 @@ static os_timer_t ntp_timeout;
 
 static ip_addr_t ntp_server_ip;
 
+/* See RFC5905 7.3 */
 typedef struct {
 	uint8 options;
 	uint8 stratum;
@@ -93,6 +94,45 @@ bool ICACHE_FLASH_ATTR is_leap(uint32_t year)
 	return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
 }
 
+bool ICACHE_FLASH_ATTR is_dst(struct tm *time)
+{
+	int lastsun = time->tm_mday - time->tm_wday;
+
+	if (time->tm_mon < 2 || time->tm_mon > 9)
+		return false;
+	if (time->tm_mon > 2 && time->tm_mon < 9)
+		return true;
+
+	/*
+	 * Starts last Sunday in March, ends last Sunday in October, which must
+	 * be at least the 25th of the month. So must be past that in March, or
+	 * before that in October, to be in DST.
+	 */
+	if (time->tm_mon == 2)
+		return (lastsun >= 25);
+	if (time->tm_mon == 9)
+		return (lastsun < 25);
+
+	return false;
+}
+
+/*
+ * Takes time, a Unix time (seconds since 1st Jan 1970) and breaks it down to:
+ *
+ * Time:
+ *   tm_sec	0-59
+ *   tm_min	0-59
+ *   tm_hour	0-23
+ *
+ * Date:
+ *   tm_year
+ *   tm_mon	0-11
+ *   tm_mday	1-31
+ *
+ *   tm_yday
+ *   tm_wday	Sunday = 0, Saturday = 6
+ *
+ */
 void ICACHE_FLASH_ATTR breakdown_time(uint32_t time, struct tm *result)
 {
 	uint32_t era, doe, yoe, mp;
@@ -119,13 +159,27 @@ void ICACHE_FLASH_ATTR breakdown_time(uint32_t time, struct tm *result)
 	mp = (5 * result->tm_yday + 2) / 153;
 	result->tm_mday = result->tm_yday - (153 * mp + 2) / 5 + 1;
 	result->tm_mon = mp + (mp < 10 ? 2 : -10);
-	if (result->tm_mon <=2)
+	if (result->tm_mon <= 2)
 		result->tm_year++;
 
 	/* result->tm_yday is March 1st indexed at this point; fix up */
 	result->tm_yday += 28 + 31;
 	if (is_leap(result->tm_year))
 		result->tm_yday++;
+
+	result->tm_isdst = is_dst(result);
+	if (result->tm_isdst)
+		result->tm_hour++;
+	if (result->tm_hour > 23) {
+		/*
+		 * We can ignore fixing up the date at the end of month etc.
+		 * because all we're actually displaying is the time.
+		 */
+		result->tm_hour = 0;
+		result->tm_wday++;
+		result->tm_mday++;
+		result->tm_yday++;
+	}
 }
 
 static void ICACHE_FLASH_ATTR ntp_udp_timeout(void *arg)
@@ -160,7 +214,7 @@ static void ICACHE_FLASH_ATTR ntp_udp_recv(void *arg, char *pdata,
 	ntp = (ntp_t *) pdata;
 	timestamp = ntp->trans_time[0] << 24 | ntp->trans_time[1] << 16 |
 		ntp->trans_time[2] << 8 | ntp->trans_time[3];
-	// Convert to Unix time ms
+	// NTP 0 is 1st Jan 1900; convert to Unix time 0 of 1st Jan 1970
 	timestamp -= 2208988800ULL;
 
 	// Store the time
