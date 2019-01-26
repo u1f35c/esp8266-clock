@@ -20,7 +20,7 @@ OBJS = user_main.o clock.o max7219.o ota.o spi.o
 all: rom0.bin rom1.bin
 
 %.bin: %.elf
-	PATH=$$PATH:$(SDKDIR)/bin esptool.py elf2image $^ --version 2 -o $@
+	esptool elf2image $^ --version 2 -o $@
 
 %.elf: $(APP)_app.a
 	$(LD) -T$(basename $@).ld $(LDFLAGS) -Wl,--start-group $(LIBS) $^ -Wl,--end-group -lgcc -o $@
