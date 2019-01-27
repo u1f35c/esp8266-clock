@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Jonathan McDowell <noodles@earth.li>
+ * Copyright 2017-2019 Jonathan McDowell <noodles@earth.li>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@
 
 struct station_config wificfg;
 static os_timer_t update_timer;
+static os_timer_t ntp_timer;
 
 static const struct fontchar clocknums[] = {
 	{ .width = 5,
@@ -105,15 +106,24 @@ void ICACHE_FLASH_ATTR update_func(void *arg)
 	max7219_show();
 }
 
+void ICACHE_FLASH_ATTR ntp_func(void *arg)
+{
+	ntp_get_time();
+}
+
 void ICACHE_FLASH_ATTR wifi_callback(System_Event_t *evt)
 {
 	switch (evt->event) {
 	case EVENT_STAMODE_CONNECTED:
 	case EVENT_STAMODE_DISCONNECTED:
+		os_timer_disarm(&ntp_timer);
 		break;
 	case EVENT_STAMODE_GOT_IP:
 		ntp_get_time();
 		ota_check();
+		os_timer_disarm(&ntp_timer);
+		os_timer_setfn(&ntp_timer, ntp_func, NULL);
+		os_timer_arm(&ntp_timer, 3600 * 1000 /* Hourly */, 1);
 	default:
 		break;
 	}
