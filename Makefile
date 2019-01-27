@@ -34,8 +34,13 @@ flash: rom0.bin rom1.bin
 
 project_config.h:
 	echo '#error "Edit this file to match your configuration."' > $@
+	echo '#define PROJECT "clock"' >> $@
+	echo '#define VER_MAJ 0' >> $@
+	echo '#define VER_MIN 1' >> $@
 	echo '#define CFG_WIFI_SSID "My Wifi"' >> $@
 	echo '#define CFG_WIFI_PASSWORD "password"' >> $@
+	echo '#define UPGRADE_HOST "upgrade-host.local"' >> $@
+	echo '#define UPGRADE_PATH "/esp8266/" PROJECT "/"' >> $@
 
 clean:
 	rm -f $(OBJS) $(APP)_app.a rom0.elf rom1.elf rom0.bin rom1.bin
