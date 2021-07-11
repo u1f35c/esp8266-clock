@@ -6,7 +6,7 @@ LD = xtensa-lx106-elf-gcc
 OBJCOPY = xtensa-lx106-elf-objcopy
 OBJDUMP = xtensa-lx106-elf-objdump
 
-LIBS = -lc -lhal -lphy -lpp -lnet80211 -llwip -lwpa -lmain
+LIBS = -lc -lcrypto -lhal -lphy -lpp -lnet80211 -llwip -lwpa -lmain
 
 CFLAGS = -Wall -Os -fno-inline-functions -mlongcalls -DICACHE_FLASH -I. \
 	 -I$(SDKDIR)/xtensa-lx106-elf/include

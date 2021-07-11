@@ -144,6 +144,42 @@ void ICACHE_FLASH_ATTR wifi_init(void)
 	wifi_set_event_handler_cb(wifi_callback);
 }
 
+#define SYSTEM_PARTITION_CUSTOMER_PRIV_PARAM SYSTEM_PARTITION_CUSTOMER_BEGIN
+
+void user_pre_init(void)
+{
+	partition_item_t p_table[] = {
+		{ SYSTEM_PARTITION_BOOTLOADER,		0x00000, 0x01000 },
+		{ SYSTEM_PARTITION_OTA_1,		0x01000, 0x76000 },
+		{ SYSTEM_PARTITION_OTA_2,		0x81000, 0x76000 },
+		{ SYSTEM_PARTITION_RF_CAL,		0xFB000, 0x01000 },
+		{ SYSTEM_PARTITION_PHY_DATA,		0xFC000, 0x01000 },
+		{ SYSTEM_PARTITION_SYSTEM_PARAMETER,	0xFD000, 0x03000 },
+	};
+	uint32_t map = system_get_flash_size_map();
+
+	switch (map) {
+	case FLASH_SIZE_8M_MAP_512_512: /* 1MB /  8Mb */
+		break;
+	case FLASH_SIZE_32M_MAP_512_512: /* 4MB / 32Mb */
+		/* Fix up system partition table bits */
+		p_table[5].addr += 0x300000;
+		p_table[6].addr += 0x300000;
+		p_table[7].addr += 0x300000;
+		break;
+	default:
+		os_printf("Unknown flash map %u\n", map);
+		while(1) ;
+	}
+
+	if (!system_partition_table_regist(p_table,
+				sizeof(p_table)/sizeof(p_table[0]),
+				map)) {
+		os_printf("system_partition_table_regist fail\n");
+		while(1);
+	}
+}
+
 void user_init(void)
 {
 	/* Fix up UART0 baud rate */
